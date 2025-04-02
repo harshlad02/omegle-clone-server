@@ -1,50 +1,41 @@
-const WebSocket = require("ws");
+const express = require("express");
+const { createServer } = require("http");
+const { Server } = require("ws");
+const { PeerServer } = require("peer");
 
-const wss = new WebSocket.Server({ port: 8080 });
+const app = express();
+const server = createServer(app);
+const wss = new Server({ server });
 
-let waitingUser = null; // Stores a user waiting for a chat
-let activePairs = new Map(); // Stores active chat pairs
-
+// WebSocket Chat Server
 wss.on("connection", (ws) => {
-    console.log("New user connected");
-
-    if (waitingUser) {
-        // Pair the waiting user with the new one
-        activePairs.set(ws, waitingUser);
-        activePairs.set(waitingUser, ws);
-
-        waitingUser.send("Connected to a stranger!");
-        ws.send("Connected to a stranger!");
-
-        waitingUser = null;
-    } else {
-        // No one is waiting, so store this user
-        waitingUser = ws;
-        ws.send("Waiting for a stranger...");
-    }
+    console.log("New WebSocket Connection");
 
     ws.on("message", (message) => {
-        const partner = activePairs.get(ws);
-        if (partner) {
-            partner.send(message); // Send message to paired user
-        }
+        console.log("Received:", message);
+
+        // Broadcast message to all connected clients
+        wss.clients.forEach((client) => {
+            if (client !== ws && client.readyState === 1) {
+                client.send(message);
+            }
+        });
     });
 
     ws.on("close", () => {
-        console.log("User disconnected");
-
-        const partner = activePairs.get(ws);
-        if (partner) {
-            partner.send("Stranger has disconnected.");
-            activePairs.delete(partner);
-        }
-
-        activePairs.delete(ws);
-
-        if (waitingUser === ws) {
-            waitingUser = null;
-        }
+        console.log("Client Disconnected");
     });
 });
 
-console.log("WebSocket server running on port 8080");
+// PeerJS Server for Video Chat
+const peerServer = PeerServer({ port: 9000, path: "/" });
+
+peerServer.on("connection", (client) => {
+    console.log("New Peer Connected: " + client.id);
+});
+
+// Start Server
+const PORT = process.env.PORT || 8080;
+server.listen(PORT, () => {
+    console.log(`WebSocket server running on port ${PORT}`);
+});
