@@ -1,7 +1,7 @@
 const express = require("express");
 const { createServer } = require("http");
 const { Server } = require("ws");
-const { PeerServer } = require("peer");
+const { ExpressPeerServer } = require("peer");
 
 const app = express();
 const server = createServer(app);
@@ -27,15 +27,16 @@ wss.on("connection", (ws) => {
     });
 });
 
-// PeerJS Server for Video Chat
-const peerServer = PeerServer({ port: 9000, path: "/" });
+// PeerJS Server for Video Chat (Runs on Same Express Server)
+const peerServer = ExpressPeerServer(server, { path: "/" });
+app.use("/peerjs", peerServer);
 
 peerServer.on("connection", (client) => {
     console.log("New Peer Connected: " + client.id);
 });
 
-// Start Server
+// Start Server (Using Single Port for Render)
 const PORT = process.env.PORT || 8080;
 server.listen(PORT, () => {
-    console.log(`WebSocket server running on port ${PORT}`);
+    console.log(`Server running on port ${PORT}`);
 });
